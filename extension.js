@@ -301,6 +301,9 @@ function mouseEventHandler(widget, event) {
 }
 
 function parseStat() {
+    if (!currentSettings || !settings)
+        return true;
+
     try {
         let input_file = Gio.file_new_for_path('/proc/net/dev');
         let [, contents, etag] = input_file.load_contents(null);
@@ -369,36 +372,86 @@ function parseStat() {
         lastSpeed = speed;
 
     } catch (e) {
-        usLabel.set_text(e.message);
-        tsLabel.set_text(e.message);
-        tdLabel.set_text(e.message);
+        if (usLabel)
+            usLabel.set_text(e.message);
+        if (tsLabel)
+            tsLabel.set_text(e.message);
+        if (tdLabel)
+            tdLabel.set_text(e.message);
     }
     return true;
 }
 
 
 export default class NetSpeedSimplifiedExtension extends Extension {
-    _settingsChanged() {
-        if (settings.get_boolean('restartextension')) {
-            settings.set_boolean('restartextension', false);
-            this.disable();
-            this.enable();
-            parseStat();
+    _restartTimeout() {
+        if (timeout) {
+            GLib.source_remove(timeout);
+            timeout = null;
         }
+
+        if (currentSettings)
+            timeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, currentSettings.refreshTime, parseStat);
+    }
+
+    _reloadFromSettings() {
+        if (!settings)
+            return;
+
+        fetchSettings();
+        this._restartTimeout();
+        parseStat();
+    }
+
+    _settingsChanged() {
+        if (!settings || !settings.get_boolean('restartextension'))
+            return;
+
+        settings.set_boolean('restartextension', false);
+        this._reloadFromSettings();
     }
 
     enable() {
         settings = this.getSettings(schema);
 
-        fetchSettings(); // Automatically creates the netSpeed Button.
-        this._settingsChangedId = settings.connect('changed', () => this._settingsChanged());
-        parseStat();
+        lastCount = 0;
+        lastSpeed = 0;
+        lastCountUp = 0;
+        resetNextCount = false;
+        resetCount = 0;
+        hideCount = 8;
+        startTime = null;
+        rClickCount = 0;
 
-        //Run infinite loop.
-        timeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, currentSettings.refreshTime, parseStat);
+        fetchSettings(); // Automatically creates the netSpeed Button.
+        this._settingsChangedId = settings.connect('changed::restartextension', () => this._settingsChanged());
+
+        this._restartTimeout();
+        parseStat();
     }
 
     disable() {
+        if (this._settingsChangedId && settings) {
+            settings.disconnect(this._settingsChangedId);
+            this._settingsChangedId = null;
+        }
+
+        if (timeout) {
+            GLib.source_remove(timeout);
+            timeout = null;
+        }
+
+        nsDestroy();
+
+        lastCount = 0;
+        lastSpeed = 0;
+        lastCountUp = 0;
+        resetNextCount = false;
+        resetCount = 0;
+        hideCount = 8;
+        startTime = null;
+        rClickCount = 0;
+
         currentSettings = null;
         settings = null;
         
@@ -410,8 +463,5 @@ export default class NetSpeedSimplifiedExtension extends Extension {
         dsIcon = null;
         tsIcon = null;
         tdIcon = null;
-
-        GLib.source_remove(timeout);
-        nsDestroy();
     }
 }

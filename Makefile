@@ -1,8 +1,15 @@
-EXT_HOME=~/.local/share/gnome-shell/extensions/netspeedsimplified@prateekmedia.extension
+EXT_HOME=$(HOME)/.local/share/gnome-shell/extensions/netspeedsimplified@prateekmedia.extension
+
+SCHEMA_DIR=schemas
+SCHEMA_FILE=$(SCHEMA_DIR)/org.gnome.shell.extensions.netspeedsimplified.gschema.xml
+SCHEMA_COMPILED=$(SCHEMA_DIR)/gschemas.compiled
+
+$(SCHEMA_COMPILED): $(SCHEMA_FILE)
+	glib-compile-schemas $(SCHEMA_DIR)
 
 all: install
 
-install: extension.js metadata.json prefs.js stylesheet.css schemas/gschemas.compiled
+install: extension.js metadata.json prefs.js stylesheet.css $(SCHEMA_COMPILED)
 	#Remove old files(if any)
 	rm -rf ${EXT_HOME}
 	#Create directory structure
@@ -11,25 +18,20 @@ install: extension.js metadata.json prefs.js stylesheet.css schemas/gschemas.com
 
 	#Copy compulsory files
 	cp extension.js metadata.json prefs.js stylesheet.css ${EXT_HOME}
-	cp schemas/gschemas.compiled ${EXT_HOME}/schemas
+	cp $(SCHEMA_COMPILED) ${EXT_HOME}/schemas
 
 	#Optional files
 	cp LICENSE ${EXT_HOME} 2>/dev/null || true
 	cp README.md ${EXT_HOME} 2>/dev/null || true
-	cp schemas/org.gnome.shell.extensions.netspeedsimplified.gschema.xml ${EXT_HOME}/schemas 2>/dev/null || true
+	cp $(SCHEMA_FILE) ${EXT_HOME}/schemas 2>/dev/null || true
 
-	#Reloading shell; Sending SIGHUP signal to gnome-shell (equivalent to alt + f2 ; r ; enter)
-	busctl --user call org.gnome.Shell /org/gnome/Shell org.gnome.Shell Eval s 'Meta.restart("Restarting…")'
-
-	#Enabling Gnome extension.
-	sleep 5
+	#Reload extension in a Wayland-safe way
+	gnome-extensions disable netspeedsimplified@prateekmedia.extension 2>/dev/null || true
 	gnome-extensions enable netspeedsimplified@prateekmedia.extension
 
 remove:
 	rm -rf ${EXT_HOME}
-
-	#Reloading shell; Sending SIGHUP signal to gnome-shell (equivalent to alt + f2 ; r ; enter)
-	busctl --user call org.gnome.Shell /org/gnome/Shell org.gnome.Shell Eval s 'Meta.restart("Restarting…")'
+	gnome-extensions disable netspeedsimplified@prateekmedia.extension 2>/dev/null || true
 
 remove-no-reboot:
 	rm -rf ${EXT_HOME}
