@@ -1,5 +1,6 @@
 import Gtk from 'gi://Gtk'
 import Gdk from 'gi://Gdk'
+import Adw from 'gi://Adw'
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js'
 // import * as Config from 'resource:///org/gnome/Shell/Extensions/js/misc/config.js'
 // const ShellVersion = parseFloat(Config.PACKAGE_VERSION)
@@ -240,9 +241,20 @@ class NssEntry {
 }
 
 export default class NetSpeedSimplifiedPreferences extends ExtensionPreferences {
+    fillPreferencesWindow(window) {
+        const widget = this.getPreferencesWidget()
+
+        const group = new Adw.PreferencesGroup()
+        group.add(widget)
+
+        const page = new Adw.PreferencesPage()
+        page.add(group)
+
+        window.add(page)
+    }
+
     getPreferencesWidget() {
         settings = this.getSettings(schema)
-        window._settings = settings
 
         fetchSettings()
 
